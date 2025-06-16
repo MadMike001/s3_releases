@@ -11,39 +11,37 @@ jobs:
       - name: 📥 Repository klonen
         uses: actions/checkout@v3
 
-      - name: 📥 OSCam-Quellcode (ICAM/EMU) klonen
+      - name: 📁 OSCam-Repo klonen (mit ICAM + EMU + Hexdump)
         run: |
           git clone https://github.com/oscam-emu/oscam-patched.git oscam
           cd oscam
-          git checkout master  # Oder "icam" falls verfügbar
+          git submodule update --init --recursive
 
-      - name: 🐳 Docker ARM Crossbuilder vorbereiten
+      - name: 🐳 Docker Umgebung vorbereiten (ARM OE2.5)
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-user-static docker
+          sudo apt-get install -y qemu-user-static docker.io
 
-      - name: 🏗️ Kompilieren mit Docker (ARM OE2.5 Umgebung)
+      - name: 🏗️ OSCam kompilieren mit Docker für Dreambox
         run: |
-          docker run --rm -v ${{ github.workspace }}:/build \
-            -w /build/oscam \
+          docker run --rm -v ${{ github.workspace }}/oscam:/build \
+            -w /build \
             multiarch/ubuntu-core:armhf-bionic bash -c "\
               apt-get update && \
               apt-get install -y build-essential libusb-1.0-0-dev libpcsclite-dev \
-                                 libssl-dev cmake pkg-config xz-utils && \
-              make allyesconfig && \
-              echo 'CONFIG_LIBUSB=y' >> config.mak && \
-              echo 'CONFIG_PCSC=y' >> config.mak && \
-              echo 'CONFIG_SSL=y' >> config.mak && \
-              echo 'CONFIG_HAVE_DVBAPI=y' >> config.mak && \
-              echo 'CONFIG_STREAMRELAY=y' >> config.mak && \
-              echo 'CONFIG_MODULE_WEBIF=y' >> config.mak && \
-              echo 'CONFIG_ICAM=y' >> config.mak && \
-              echo 'CONFIG_EMU=y' >> config.mak && \
-              echo 'CONFIG_LOGHEXDUMP=y' >> config.mak && \
-              make -j2"
+                                 libssl-dev cmake pkg-config git && \
+              touch SoftCam.Key && \
+              make config && \
+              make -j$(nproc) \
+                CONF_DIR=/build/config \
+                USE_LIBUSB=1 \
+                USE_SSL=1 \
+                USE_PCSC=1 \
+                USE_EMU=1 \
+                USE_HEXDUMP=1"
 
       - name: 📦 OSCam Binary als Artifact speichern
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: oscam-dm920
-          path: oscam/oscam
+          path: oscam/Distribution/oscam*
