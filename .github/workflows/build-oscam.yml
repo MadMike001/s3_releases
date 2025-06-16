@@ -1,4 +1,4 @@
-name: Build OSCam Binary (Dreambox DM920)
+name: Build OSCam for Dreambox ARM (ICAM+EMU+Hexdump)
 
 on:
   workflow_dispatch:
@@ -11,28 +11,39 @@ jobs:
       - name: 📥 Repository klonen
         uses: actions/checkout@v3
 
+      - name: 📥 OSCam-Quellcode (ICAM/EMU) klonen
+        run: |
+          git clone https://github.com/oscam-emu/oscam-patched.git oscam
+          cd oscam
+          git checkout master  # Oder "icam" falls verfügbar
+
       - name: 🐳 Docker ARM Crossbuilder vorbereiten
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-user-static
+          sudo apt-get install -y qemu-user-static docker
 
       - name: 🏗️ Kompilieren mit Docker (ARM OE2.5 Umgebung)
         run: |
           docker run --rm -v ${{ github.workspace }}:/build \
-            -w /build \
+            -w /build/oscam \
             multiarch/ubuntu-core:armhf-bionic bash -c "\
               apt-get update && \
               apt-get install -y build-essential libusb-1.0-0-dev libpcsclite-dev \
                                  libssl-dev cmake pkg-config xz-utils && \
-              make distclean || true && \
-              touch SoftCam.Key && \
-              make USE_LIBUSB=1 USE_SSL=1 USE_PCSC=1 USE_EMU=1 \
-                   MODULE_MONITOR=1 MODULE_WEBIF=1 \
-                   WEBIF_LIVELOG=1 WITH_DEBUG=1 LOG_HEX_DUMP=1 \
-                   OSCAM_BIN=distribution/oscam"
+              make allyesconfig && \
+              echo 'CONFIG_LIBUSB=y' >> config.mak && \
+              echo 'CONFIG_PCSC=y' >> config.mak && \
+              echo 'CONFIG_SSL=y' >> config.mak && \
+              echo 'CONFIG_HAVE_DVBAPI=y' >> config.mak && \
+              echo 'CONFIG_STREAMRELAY=y' >> config.mak && \
+              echo 'CONFIG_MODULE_WEBIF=y' >> config.mak && \
+              echo 'CONFIG_ICAM=y' >> config.mak && \
+              echo 'CONFIG_EMU=y' >> config.mak && \
+              echo 'CONFIG_LOGHEXDUMP=y' >> config.mak && \
+              make -j2"
 
       - name: 📦 OSCam Binary als Artifact speichern
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: oscam-dm920
-          path: ./distribution/oscam
+          path: oscam/oscam
