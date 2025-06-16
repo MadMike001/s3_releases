@@ -11,13 +11,28 @@ jobs:
       - name: 📥 Repository klonen
         uses: actions/checkout@v3
 
-      - name: 🛠️ OSCam für ARM OE2.5 bauen
+      - name: 🐳 Docker ARM Crossbuilder vorbereiten
         run: |
-          chmod +x s3
-          ./s3 arm --clean --only-bin
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
 
-      - name: 📤 OSCam-Binary hochladen
-        uses: actions/upload-artifact@v3
+      - name: 🏗️ Kompilieren mit Docker (ARM OE2.5 Umgebung)
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/build \
+            -w /build \
+            multiarch/ubuntu-core:armhf-bionic bash -c "\
+              apt-get update && \
+              apt-get install -y build-essential libusb-1.0-0-dev libpcsclite-dev \
+                                 libssl-dev cmake pkg-config xz-utils && \
+              make distclean || true && \
+              touch SoftCam.Key && \
+              make USE_LIBUSB=1 USE_SSL=1 USE_PCSC=1 USE_EMU=1 \
+                   MODULE_MONITOR=1 MODULE_WEBIF=1 \
+                   WEBIF_LIVELOG=1 WITH_DEBUG=1 LOG_HEX_DUMP=1 \
+                   OSCAM_BIN=distribution/oscam"
+
+      - name: 📦 OSCam Binary als Artifact speichern
+        uses: actions/upload-artifact@v4
         with:
-          name: oscam-binary
-          path: out/*oscam*
+          name: oscam-dm920
+          path: ./distribution/oscam
