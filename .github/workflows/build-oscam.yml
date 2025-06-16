@@ -1,4 +1,4 @@
-name: Build OSCam for Dreambox ARM (ICAM+EMU+Hexdump)
+name: Build OSCam (ICAM+EMU+Hexdump) for Dreambox DM920
 
 on:
   workflow_dispatch:
@@ -8,40 +8,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Repository klonen
+      - name: 📥 Repo klonen (s3_releases)
         uses: actions/checkout@v3
-
-      - name: 📁 OSCam-Repo klonen (mit ICAM + EMU + Hexdump)
-        run: |
-          git clone https://github.com/oscam-emu/oscam-patched.git oscam
-          cd oscam
-          git submodule update --init --recursive
-
-      - name: 🐳 Docker Umgebung vorbereiten (ARM OE2.5)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static docker.io
-
-      - name: 🏗️ OSCam kompilieren mit Docker für Dreambox
-        run: |
-          docker run --rm -v ${{ github.workspace }}/oscam:/build \
-            -w /build \
-            multiarch/ubuntu-core:armhf-bionic bash -c "\
-              apt-get update && \
-              apt-get install -y build-essential libusb-1.0-0-dev libpcsclite-dev \
-                                 libssl-dev cmake pkg-config git && \
-              touch SoftCam.Key && \
-              make config && \
-              make -j$(nproc) \
-                CONF_DIR=/build/config \
-                USE_LIBUSB=1 \
-                USE_SSL=1 \
-                USE_PCSC=1 \
-                USE_EMU=1 \
-                USE_HEXDUMP=1"
-
-      - name: 📦 OSCam Binary als Artifact speichern
-        uses: actions/upload-artifact@v4
         with:
-          name: oscam-dm920
-          path: oscam/Distribution/oscam*
+          repository: gorgone/s3_releases
+          path: s3_releases
+
+      - name: 🔧 s3 vorbereiten
+        run: |
+          cd s3_releases
+          chmod +x s3
+
+      - name: 🐳 Kompilieren (ARM OE2.5)
+        run: |
+          cd s3_releases
+          ./s3 1025  # 1025 = ARM OE2.5 Dreambox (siehe Auswahl im Script)
+
+      - name: 📦 Binary speichern
+        uses: actions/upload-artifact@v3
+        with:
+          name: oscam-arm
+          path: s3_releases/output/*
