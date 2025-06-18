@@ -1,0 +1,40 @@
+name: Build OSCam with ICAM+EMU+Hexdump for Dreambox DM920
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Repo klonen (s3_releases)
+        uses: actions/checkout@v4
+
+      - name: 🧰 Abhängigkeiten installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git build-essential dialog \
+            libssl-dev libusb-1.0-0-dev pkg-config xz-utils wget tar
+
+      - name: 📦 Toolchain herunterladen und entpacken
+        run: |
+          mkdir -p toolchains
+          wget https://github.com/MadMike001/oscam-patched-old/releases/download/toolchain-v1/arm-oe-linux-gnueabi-toolchain.tar.xz
+          tar -xf arm-oe-linux-gnueabi-toolchain.tar.xz -C toolchains
+
+      - name: 🧪 OSCam für Dreambox DM920 kompilieren
+        run: |
+          chmod +x s3
+          ./s3 <<EOF
+1
+1
+1
+1
+EOF
+
+      - name: 📤 Kompilierte Binaries als Artefakt bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: oscam-dm920-ipk
+          path: output/*.ipk
