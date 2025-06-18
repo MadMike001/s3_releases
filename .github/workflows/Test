@@ -23,7 +23,7 @@ jobs:
           wget https://github.com/MadMike001/oscam-patched-old/releases/download/toolchain-v1/arm-oe-linux-gnueabi-toolchain.tar.xz
           tar -xf arm-oe-linux-gnueabi-toolchain.tar.xz -C toolchains
 
-      - name: 🧪 OSCam für Dreambox DM920 kompilieren
+      - name: 🧪 OSCam für Dreambox DM920 kompilierenn
         run: |
           chmod +x s3
           ./s3 <<EOF
